@@ -1,5 +1,5 @@
 # ─────────────────────────────────────────────────────────────────────────────
-#  Nutrients — CI/CD Pipeline → Cloudflare Pages (via Wrangler CLI)
+#  NN Nutrients — CI/CD Pipeline → Cloudflare Pages (via Wrangler CLI)
 #
 #  Flow:  validate → deploy → notify
 #
@@ -15,23 +15,21 @@
 #    NOTIFY_EMAIL        email to receive deploy alerts
 # ─────────────────────────────────────────────────────────────────────────────
 
-name: CI/CD — Nutrients → Cloudflare Pages
+name: CI/CD — NN Nutrients
 
 on:
   push:
     branches: [main]
-    paths:
-      - "Nutrients/**"
   workflow_dispatch:
 
 concurrency:
-  group: deploy-nutrients-cf
+  group: deploy-nn-nutrients
   cancel-in-progress: true
 
 jobs:
-  # ─────────────────────────────────────────────────────────────────────────
-  #  CI — Validate before deploying
-  # ─────────────────────────────────────────────────────────────────────────
+  # ───────────────────────────────────────────────────────────────────────────
+  #  CI — Validate
+  # ───────────────────────────────────────────────────────────────────────────
   validate:
     name: CI — Validate HTML
     runs-on: ubuntu-latest
@@ -42,36 +40,34 @@ jobs:
 
       - name: Check file exists
         run: |
-          if [ ! -f "Nutrients/index.html" ]; then
-            echo "❌ Nutrients/index.html not found"
+          if [ ! -f "index.html" ]; then
+            echo "❌ index.html not found"
             exit 1
           fi
-          echo "✅ index.html found — $(wc -l < Nutrients/index.html) lines"
+          echo "✅ index.html found — $(wc -l < index.html) lines"
 
       - name: Validate HTML structure
         run: |
-          FILE="Nutrients/index.html"
-          grep -qi "doctype html" $FILE || (echo "❌ Missing DOCTYPE"  && exit 1)
-          grep -q "<html"           $FILE || (echo "❌ Missing <html>"   && exit 1)
-          grep -q "</html>"         $FILE || (echo "❌ Missing </html>"  && exit 1)
-          grep -q "<head"           $FILE || (echo "❌ Missing <head>"   && exit 1)
-          grep -q "</head>"         $FILE || (echo "❌ Missing </head>"  && exit 1)
-          grep -q "<body"           $FILE || (echo "❌ Missing <body>"   && exit 1)
-          grep -q "</body>"         $FILE || (echo "❌ Missing </body>"  && exit 1)
+          grep -qi "doctype html"   index.html || (echo "❌ Missing DOCTYPE"  && exit 1)
+          grep -q  "<html"          index.html || (echo "❌ Missing <html>"   && exit 1)
+          grep -q  "</html>"        index.html || (echo "❌ Missing </html>"  && exit 1)
+          grep -q  "<head"          index.html || (echo "❌ Missing <head>"   && exit 1)
+          grep -q  "</head>"        index.html || (echo "❌ Missing </head>"  && exit 1)
+          grep -q  "<body"          index.html || (echo "❌ Missing <body>"   && exit 1)
+          grep -q  "</body>"        index.html || (echo "❌ Missing </body>"  && exit 1)
           echo "✅ HTML structure valid"
 
       - name: Check required content
         run: |
-          FILE="Nutrients/index.html"
-          grep -q "xjgjrqow"        $FILE || (echo "❌ Formspree ID missing"  && exit 1)
-          grep -q "NN Nutrients"    $FILE || (echo "❌ Brand name missing"    && exit 1)
-          grep -q "enquiryForm"     $FILE || (echo "❌ Enquiry form missing"  && exit 1)
-          grep -q "contactForm"     $FILE || (echo "❌ Contact form missing"  && exit 1)
+          grep -q "xjgjrqow"     index.html || (echo "❌ Formspree ID missing"  && exit 1)
+          grep -q "NN Nutrients" index.html || (echo "❌ Brand name missing"    && exit 1)
+          grep -q "enquiryForm"  index.html || (echo "❌ Enquiry form missing"  && exit 1)
+          grep -q "contactForm"  index.html || (echo "❌ Contact form missing"  && exit 1)
           echo "✅ Required content present"
 
       - name: Check file size
         run: |
-          SIZE=$(wc -c < Nutrients/index.html)
+          SIZE=$(wc -c < index.html)
           echo "📦 File size: ${SIZE} bytes"
           if [ "$SIZE" -lt 10000 ]; then
             echo "❌ File too small — may be corrupted"
@@ -79,9 +75,9 @@ jobs:
           fi
           echo "✅ File size OK"
 
-  # ─────────────────────────────────────────────────────────────────────────
+  # ───────────────────────────────────────────────────────────────────────────
   #  CD — Deploy to Cloudflare Pages via Wrangler CLI
-  # ─────────────────────────────────────────────────────────────────────────
+  # ───────────────────────────────────────────────────────────────────────────
   deploy:
     name: CD — Deploy to Cloudflare Pages
     runs-on: ubuntu-latest
@@ -102,7 +98,7 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
         run: |
-          npx wrangler@3 pages deploy Nutrients \
+          npx wrangler@3 pages deploy . \
             --project-name="${{ secrets.CF_PAGES_PROJECT }}" \
             --branch=main \
             --commit-hash="${{ github.sha }}"
@@ -110,16 +106,16 @@ jobs:
       - name: Summary
         if: success()
         run: |
-          echo "### ✅ Nutrients — Deployed to Cloudflare Pages" >> $GITHUB_STEP_SUMMARY
+          echo "### ✅ NN Nutrients — Deployed to Cloudflare Pages" >> $GITHUB_STEP_SUMMARY
           echo "| | |" >> $GITHUB_STEP_SUMMARY
           echo "|---|---|" >> $GITHUB_STEP_SUMMARY
           echo "| Project  | \`${{ secrets.CF_PAGES_PROJECT }}\`  |" >> $GITHUB_STEP_SUMMARY
           echo "| Commit   | \`${{ github.sha }}\`                |" >> $GITHUB_STEP_SUMMARY
           echo "| By       | ${{ github.actor }}                   |" >> $GITHUB_STEP_SUMMARY
 
-  # ─────────────────────────────────────────────────────────────────────────
+  # ───────────────────────────────────────────────────────────────────────────
   #  Notify — Email on success or failure
-  # ─────────────────────────────────────────────────────────────────────────
+  # ───────────────────────────────────────────────────────────────────────────
   notify:
     name: Notify — Email Alert
     needs: [deploy]
@@ -145,7 +141,7 @@ jobs:
           server_port:    ${{ secrets.SMTP_PORT }}
           username:       ${{ secrets.SMTP_USERNAME }}
           password:       ${{ secrets.SMTP_PASSWORD }}
-          subject:        "Nutrients Website — ${{ steps.status.outputs.value }}"
+          subject:        "NN Nutrients Website — ${{ steps.status.outputs.value }}"
           to:             ${{ secrets.NOTIFY_EMAIL }}
           from:           ${{ secrets.SMTP_USERNAME }}
           body: |
